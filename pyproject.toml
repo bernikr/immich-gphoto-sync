@@ -1,0 +1,22 @@
+[project]
+name = "immich-gphoto-sync"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[tool.uv]
+dev-dependencies = ["ruff>=0.6.9"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+preview = true
+select = ["ALL"]
+ignore = [
+    "D",   # pydocstyle
+    "CPY", # flake8-copyright
+    "T20", # flake8-print
+]
