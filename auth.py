@@ -1,15 +1,14 @@
 import asyncio
-from pathlib import Path
 
 from playwright.async_api import async_playwright
 
-DATA_FOLDER = Path("./data")
+from config import USER_DATA_FOLDER
 
 
 async def main() -> None:
     async with async_playwright() as p:
         browser = await p.chromium.launch_persistent_context(
-            DATA_FOLDER / "usrdata",
+            USER_DATA_FOLDER,
             headless=False,
             args=[
                 "--disable-blink-features=AutomationControlled",
