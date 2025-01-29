@@ -19,7 +19,7 @@ async def main() -> None:
     async with get_db() as db, get_google_photos_api() as gphoto:
         for url in ALBUMS_FILE.read_text().splitlines():
             album_id, key, title = await gphoto.load_album_meta(url)
-            print(f"checcking album '{title}'")
+            print(f"checking album '{title}'")
             album = await db.get_or_create_album(album_id, key)
             if album.immich_id is None:
                 album.immich_id = await immich.create_album(title)
