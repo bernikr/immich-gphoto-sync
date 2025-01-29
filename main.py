@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 import google_photos as gphoto
 import immich
-from config import ALBUMS_FILE, USER_DATA_FOLDER
+from config import ALBUMS_FILE, HEADLESS, USER_DATA_FOLDER
 from db import Album, Database, get_db
 
 
@@ -20,11 +20,12 @@ async def main() -> None:
     async with async_playwright() as playwright, get_db() as db:
         browser = await playwright.chromium.launch_persistent_context(
             USER_DATA_FOLDER,
-            headless=False,
+            headless=HEADLESS,
         )
         page = await browser.new_page()
         for url in ALBUMS_FILE.read_text().splitlines():
             album_id, key, title = await gphoto.load_album_meta(page, url)
+            print(f"checcking album '{title}'")
             album = await db.get_or_create_album(album_id, key)
             if album.immich_id is None:
                 album.immich_id = await immich.create_album(title)
