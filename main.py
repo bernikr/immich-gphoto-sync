@@ -28,8 +28,10 @@ async def main() -> None:
             album = await db.get_or_create_album(album_id, key)
             if album.immich_id is None:
                 album.immich_id = await immich.create_album(title)
+
             photos = await db.get_photos(album.id)
             google_photo_ids = set(await gphoto.get_photo_ids(page, album.google_id, album.google_key))
+            immich_photo_ids = set(await immich.get_photo_ids(album.immich_id))
 
             new_on_google_photos = google_photo_ids - {p.google_id for p in photos}
             if new_on_google_photos:
@@ -40,8 +42,6 @@ async def main() -> None:
             deleted_on_google_photos = {p.google_id for p in photos} - google_photo_ids
             if deleted_on_google_photos:
                 print(f"{len(deleted_on_google_photos)} photos deleted on Google, not yet implemented")
-
-            immich_photo_ids = set(await immich.get_photo_ids(album.immich_id))
 
             new_on_immich = immich_photo_ids - {p.immich_id for p in photos}
             if new_on_immich:
