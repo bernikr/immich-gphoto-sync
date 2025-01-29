@@ -38,6 +38,11 @@ https://photos.google.com/share/xxxx?key=yyyy
 https://photos.app.goo.gl/xxxx
 ```
 
+Login to Google Photos by first running the interactive auth
+```bash
+uv run auth.py
+```
+
 ### Run
 ```bash
 uv run main.py
