@@ -1,8 +1,9 @@
 import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Literal
 
-from sqlalchemy import select
+from sqlalchemy import ForeignKey, select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -25,7 +26,20 @@ class Album(Base):
         return f"<Album(google_id={self.google_id}, immich_id={self.immich_id})>"
 
 
-class DatabaseHelper:
+Direction = Literal["to_immich", "to_google"]
+
+
+class Photo(Base):
+    __tablename__ = "photos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    album_id: Mapped[int] = mapped_column(ForeignKey("albums.id"))
+    google_id: Mapped[str]
+    immich_id: Mapped[str]
+    direction: Mapped[Direction]
+
+
+class Database:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
@@ -39,23 +53,33 @@ class DatabaseHelper:
             self.session.add(album)
         return album
 
+    async def get_photos(self, album_id: int) -> list[Photo]:
+        return list((await self.session.execute(select(Photo).filter(Photo.album_id == album_id))).scalars().all())
+
+    async def create_photo(self, album_id: int, google_id: str, immich_id: str, direction: Direction) -> Photo:
+        photo = Photo(album_id=album_id, google_id=google_id, immich_id=immich_id, direction=direction)
+        self.session.add(photo)
+        return photo
+
 
 @asynccontextmanager
-async def get_db() -> AsyncGenerator[DatabaseHelper]:
+async def get_db() -> AsyncGenerator[Database]:
     engine = create_async_engine(f"sqlite+aiosqlite:///{DB_FILE}")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     try:
         async with AsyncSession(engine) as session, session.begin():
-            yield DatabaseHelper(session)
+            try:
+                yield Database(session)
+            finally:
+                await session.commit()
     finally:
         await engine.dispose()
 
 
 async def main() -> None:
-    async with get_db() as db:
-        album = await db.get_or_create_album("asd", "asd")
-        print(album)
+    async with get_db():
+        pass
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 import asyncio
 import re
+from pathlib import Path
 
 from playwright.async_api import Page
 
@@ -32,3 +33,12 @@ async def load_album_meta(page: Page, url: str) -> tuple[str, str, str]:
     galbum_id, gkey = re.findall(r"share\/([^\/?]+).*[?&]key=([^\/&]+)", page.url)[0]
     title = (await page.title()).replace(" - Google Photos", "")
     return galbum_id, gkey, title
+
+
+async def download_photo(page: Page, album_id: str, key: str, image_id: str) -> tuple[Path, str]:
+    await page.goto(f"https://photos.google.com/share/{album_id}/photo/{image_id}?key={key}")
+    await asyncio.sleep(0.3)
+    async with page.expect_download() as download_info:
+        await page.keyboard.press("Shift+D")
+    download = await download_info.value
+    return await download.path(), download.suggested_filename
