@@ -1,11 +1,12 @@
 import asyncio
+from tempfile import TemporaryDirectory
 
 from tqdm import tqdm
 
 import immich
 from config import ALBUMS_FILE
 from db import Album, Database, get_db
-from google_photos import GooglePhotosApi, get_google_photos_api
+from google_photos import GooglePhotosApi, GooglePhotosApiError, get_google_photos_api
 
 
 async def google_to_immich(album: Album, google_id: str, db: Database, gphoto: GooglePhotosApi) -> None:
@@ -13,6 +14,17 @@ async def google_to_immich(album: Album, google_id: str, db: Database, gphoto: G
     immich_id = await immich.upload_photo(file, filename)
     await immich.add_photo_to_album(album.immich_id, immich_id)
     await db.create_photo(album.id, google_id, immich_id, "to_immich")
+
+
+async def immich_to_google(album: Album, immich_id: str, db: Database, gphoto: GooglePhotosApi) -> None:
+    with TemporaryDirectory() as tmp_dir:
+        file = await immich.download_photo(immich_id, tmp_dir)
+        try:
+            google_id = await gphoto.upload_photo_to_album(album.google_id, album.google_key, file)
+            await db.create_photo(album.id, google_id, immich_id, "to_google")
+        except GooglePhotosApiError as e:
+            print("Error uploading to Google Photos:", e)
+            print(f"immich_id: {immich_id}")
 
 
 async def main() -> None:
@@ -30,7 +42,7 @@ async def main() -> None:
 
             new_on_google_photos = google_photo_ids - {p.google_id for p in photos}
             if new_on_google_photos:
-                print("uploading images to Immich")
+                print("uploading to Immich")
                 for google_id in tqdm(new_on_google_photos):
                     await google_to_immich(album, google_id, db, gphoto)
 
@@ -40,7 +52,9 @@ async def main() -> None:
 
             new_on_immich = immich_photo_ids - {p.immich_id for p in photos}
             if new_on_immich:
-                print(f"{len(new_on_immich)} new photos on Immich, not yet implemented")
+                print("uploading to Google Photos")
+                for immich_id in tqdm(new_on_immich):
+                    await immich_to_google(album, immich_id, db, gphoto)
 
             deleted_on_immich = {p.immich_id for p in photos} - immich_photo_ids
             if deleted_on_immich:

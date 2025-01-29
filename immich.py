@@ -69,3 +69,22 @@ async def upload_photo(file: Path, filename: str) -> str:
 
 async def add_photo_to_album(album_id: str, photo_id: str) -> None:
     await _call("PUT", f"albums/{album_id}/assets", data={"ids": [photo_id]})
+
+
+async def download_photo(photo_id: str, folder: Path | str) -> Path:
+    filename = (await _call("GET", f"assets/{photo_id}"))["originalFileName"]
+    file = Path(folder) / filename
+    async with (
+        aiohttp.ClientSession() as session,
+        session.get(
+            IMMICH_URL + f"/api/assets/{photo_id}/original",
+            headers={"Accept": "application/octet-stream", "x-api-key": IMMICH_API_KEY},
+        ) as res,
+    ):
+        with file.open("wb") as f:
+            while True:
+                chunk = await res.content.readany()
+                if not chunk:
+                    break
+                f.write(chunk)
+    return file

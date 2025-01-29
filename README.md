@@ -8,7 +8,7 @@ This project takes a list of share google photo albums, and creates correspondin
 **Roadmap**:
 - [x] Create albums in Immich
 - [x] Upload photos from Google Photos to Immich
-- [ ] Upload photos from Immich to Google Photos
+- [x] Upload photos from Immich to Google Photos
 - [ ] Delete photos in Immich when deleted on Google Photos
 - [ ] Delete photos in Google Photos when deleted on Immich
 
