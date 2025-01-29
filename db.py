@@ -1,0 +1,62 @@
+import asyncio
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+from config import DB_FILE
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class Album(Base):
+    __tablename__ = "albums"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    google_id: Mapped[str] = mapped_column(nullable=False, unique=True)
+    google_key: Mapped[str] = mapped_column(nullable=False)
+    immich_id: Mapped[str] = mapped_column(nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<Album(google_id={self.google_id}, immich_id={self.immich_id})>"
+
+
+class DatabaseHelper:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def get_album(self, google_id: str) -> Album | None:
+        return (await self.session.execute(select(Album).filter(Album.google_id == google_id))).scalar_one_or_none()
+
+    async def get_or_create_album(self, google_id: str, google_key: str) -> Album:
+        album = await self.get_album(google_id)
+        if album is None:
+            album = Album(google_id=google_id, google_key=google_key)
+            self.session.add(album)
+        return album
+
+
+@asynccontextmanager
+async def get_db() -> AsyncGenerator[DatabaseHelper]:
+    engine = create_async_engine(f"sqlite+aiosqlite:///{DB_FILE}")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with AsyncSession(engine) as session, session.begin():
+            yield DatabaseHelper(session)
+    finally:
+        await engine.dispose()
+
+
+async def main() -> None:
+    async with get_db() as db:
+        album = await db.get_or_create_album("asd", "asd")
+        print(album)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
