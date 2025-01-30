@@ -3,10 +3,15 @@ import re
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import NewType
 
 from playwright.async_api import BrowserContext, Page, async_playwright
 
 from config import HEADLESS, USER_DATA_FOLDER
+
+GoogleAlbumId = NewType("GoogleAlbumId", str)
+GoogleKey = NewType("GoogleKey", str)
+GooglePhotoId = NewType("GooglePhotoId", str)
 
 
 class GooglePhotosApiError(Exception):
@@ -18,8 +23,8 @@ class GooglePhotosApi:
         self.browser = browser
         self.page = page
 
-    async def _get_photo_ids(self) -> list[str]:
-        photos: dict[str, None] = {}
+    async def _get_photo_ids(self) -> list[GooglePhotoId]:
+        photos: dict[GooglePhotoId, None] = {}
 
         scroll_offset = await self.page.evaluate("window.innerHeight") / 2
         previous_height = -scroll_offset
@@ -38,18 +43,23 @@ class GooglePhotosApi:
                 return list(photos)
             previous_height = current_height
 
-    async def get_photo_ids(self, album_id: str, key: str) -> list[str]:
+    async def get_photo_ids(self, album_id: GoogleAlbumId, key: GoogleKey) -> list[GooglePhotoId]:
         await self.page.goto(f"https://photos.google.com/share/{album_id}?key={key}")
         return await self._get_photo_ids()
 
-    async def load_album_meta(self, url: str) -> tuple[str, str, str]:
+    async def load_album_meta(self, url: str) -> tuple[GoogleAlbumId, GoogleKey, str]:
         await self.page.goto(url)
         await self.page.wait_for_url("https://photos.google.com/share/*")
         galbum_id, gkey = re.findall(r"share\/([^\/?]+).*[?&]key=([^\/&]+)", self.page.url)[0]
         title = (await self.page.title()).replace(" - Google Photos", "")
         return galbum_id, gkey, title
 
-    async def download_photo(self, album_id: str, key: str, image_id: str) -> tuple[Path, str]:
+    async def download_photo(
+        self,
+        album_id: GoogleAlbumId,
+        key: GoogleKey,
+        image_id: GooglePhotoId,
+    ) -> tuple[Path, str]:
         await self.page.goto(f"https://photos.google.com/share/{album_id}/photo/{image_id}?key={key}")
         await asyncio.sleep(0.3)
         async with self.page.expect_download() as download_info:
@@ -57,7 +67,7 @@ class GooglePhotosApi:
         download = await download_info.value
         return await download.path(), download.suggested_filename
 
-    async def upload_photo_to_album(self, album_id: str, key: str, file: Path) -> str:
+    async def upload_photo_to_album(self, album_id: GoogleAlbumId, key: GoogleKey, file: Path) -> GooglePhotoId:
         await self.page.goto(f"https://photos.google.com/share/{album_id}?key={key}")
         before_ids = set(await self._get_photo_ids())
         await self.page.get_by_role("button", name="Add photos").click()

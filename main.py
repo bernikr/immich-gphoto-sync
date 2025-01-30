@@ -5,18 +5,18 @@ from tqdm import tqdm
 
 import immich
 from config import ALBUMS_FILE
-from db import Album, Database, get_db
+from db import Album, Database, GooglePhotoId, ImmichPhotoId, get_db
 from google_photos import GooglePhotosApi, GooglePhotosApiError, get_google_photos_api
 
 
-async def google_to_immich(album: Album, google_id: str, db: Database, gphoto: GooglePhotosApi) -> None:
+async def google_to_immich(album: Album, google_id: GooglePhotoId, db: Database, gphoto: GooglePhotosApi) -> None:
     file, filename = await gphoto.download_photo(album.google_id, album.google_key, google_id)
     immich_id = await immich.upload_photo(file, filename)
     await immich.add_photo_to_album(album.immich_id, immich_id)
     await db.create_photo(album.id, google_id, immich_id, "to_immich")
 
 
-async def immich_to_google(album: Album, immich_id: str, db: Database, gphoto: GooglePhotosApi) -> None:
+async def immich_to_google(album: Album, immich_id: ImmichPhotoId, db: Database, gphoto: GooglePhotosApi) -> None:
     with TemporaryDirectory() as tmp_dir:
         file = await immich.download_photo(immich_id, tmp_dir)
         try:

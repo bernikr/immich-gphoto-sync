@@ -1,26 +1,35 @@
 import asyncio
+import typing
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Literal
 
-from sqlalchemy import ForeignKey, select
+from sqlalchemy import ForeignKey, String, select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from config import DB_FILE
+from google_photos import GoogleAlbumId, GoogleKey, GooglePhotoId
+from immich import ImmichAlbumId, ImmichPhotoId
 
 
 class Base(DeclarativeBase):
-    pass
+    type_annotation_map: typing.ClassVar = {
+        GoogleAlbumId: String(),
+        GoogleKey: String(),
+        GooglePhotoId: String(),
+        ImmichAlbumId: String(),
+        ImmichPhotoId: String(),
+    }
 
 
 class Album(Base):
     __tablename__ = "albums"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    google_id: Mapped[str] = mapped_column(nullable=False, unique=True)
-    google_key: Mapped[str] = mapped_column(nullable=False)
-    immich_id: Mapped[str] = mapped_column(nullable=True)
+    google_id: Mapped[GoogleAlbumId] = mapped_column(nullable=False, unique=True)
+    google_key: Mapped[GoogleKey] = mapped_column(nullable=False)
+    immich_id: Mapped[ImmichAlbumId] = mapped_column(nullable=True)
 
     def __repr__(self) -> str:
         return f"<Album(google_id={self.google_id}, immich_id={self.immich_id})>"
@@ -34,8 +43,8 @@ class Photo(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     album_id: Mapped[int] = mapped_column(ForeignKey("albums.id"))
-    google_id: Mapped[str]
-    immich_id: Mapped[str]
+    google_id: Mapped[GooglePhotoId]
+    immich_id: Mapped[ImmichPhotoId]
     direction: Mapped[Direction]
 
 

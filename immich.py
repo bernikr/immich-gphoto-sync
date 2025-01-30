@@ -1,12 +1,15 @@
 import datetime
 from http import HTTPStatus
 from pathlib import Path
-from typing import Literal
+from typing import Literal, NewType
 
 import aiofiles
 import aiohttp
 
 from config import IMMICH_API_KEY, IMMICH_URL
+
+ImmichAlbumId = NewType("ImmichAlbumId", str)
+ImmichPhotoId = NewType("ImmichPhotoId", str)
 
 
 class APIError(Exception):
@@ -42,17 +45,17 @@ async def _call(
         return await res.json()
 
 
-async def create_album(title: str) -> str:
+async def create_album(title: str) -> ImmichAlbumId:
     res = await _call("POST", "albums", data={"albumName": title})
     return res["id"]
 
 
-async def get_photo_ids(album_id: str) -> list[str]:
+async def get_photo_ids(album_id: ImmichAlbumId) -> list[ImmichPhotoId]:
     res = await _call("GET", f"albums/{album_id}")
     return [p["id"] for p in res["assets"]]
 
 
-async def upload_photo(file: Path, filename: str) -> str:
+async def upload_photo(file: Path, filename: str) -> ImmichPhotoId:
     stats = file.stat()
     data = {
         "deviceAssetId": f"{file}-{stats.st_mtime}",
@@ -67,11 +70,11 @@ async def upload_photo(file: Path, filename: str) -> str:
     return res["id"]
 
 
-async def add_photo_to_album(album_id: str, photo_id: str) -> None:
+async def add_photo_to_album(album_id: ImmichAlbumId, photo_id: ImmichPhotoId) -> None:
     await _call("PUT", f"albums/{album_id}/assets", data={"ids": [photo_id]})
 
 
-async def download_photo(photo_id: str, folder: Path | str) -> Path:
+async def download_photo(photo_id: ImmichPhotoId, folder: Path | str) -> Path:
     filename = (await _call("GET", f"assets/{photo_id}"))["originalFileName"]
     file = Path(folder) / filename
     async with (
