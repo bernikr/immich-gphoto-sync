@@ -27,9 +27,9 @@ class Album(Base):
     __tablename__ = "albums"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    google_id: Mapped[GoogleAlbumId] = mapped_column(nullable=False, unique=True)
-    google_key: Mapped[GoogleKey] = mapped_column(nullable=False)
-    immich_id: Mapped[ImmichAlbumId] = mapped_column(nullable=True)
+    google_id: Mapped[GoogleAlbumId] = mapped_column(unique=True)
+    google_key: Mapped[GoogleKey]
+    immich_id: Mapped[ImmichAlbumId]
 
     def __repr__(self) -> str:
         return f"<Album(google_id={self.google_id}, immich_id={self.immich_id})>"
@@ -52,20 +52,24 @@ class Database:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def get_album(self, google_id: str) -> Album | None:
+    async def get_album(self, google_id: GoogleAlbumId) -> Album | None:
         return (await self.session.execute(select(Album).filter(Album.google_id == google_id))).scalar_one_or_none()
 
-    async def get_or_create_album(self, google_id: str, google_key: str) -> Album:
-        album = await self.get_album(google_id)
-        if album is None:
-            album = Album(google_id=google_id, google_key=google_key)
-            self.session.add(album)
+    async def create_album(self, google_id: GoogleAlbumId, google_key: GoogleKey, immich_id: ImmichAlbumId) -> Album:
+        album = Album(google_id=google_id, google_key=google_key, immich_id=immich_id)
+        self.session.add(album)
         return album
 
-    async def get_photos(self, album_id: int) -> list[Photo]:
-        return list((await self.session.execute(select(Photo).filter(Photo.album_id == album_id))).scalars().all())
+    async def get_photos(self, album: Album) -> list[Photo]:
+        return list((await self.session.execute(select(Photo).filter(Photo.album_id == album.id))).scalars().all())
 
-    async def create_photo(self, album_id: int, google_id: str, immich_id: str, direction: Direction) -> Photo:
+    async def create_photo(
+        self,
+        album_id: int,
+        google_id: GooglePhotoId,
+        immich_id: ImmichPhotoId,
+        direction: Direction,
+    ) -> Photo:
         photo = Photo(album_id=album_id, google_id=google_id, immich_id=immich_id, direction=direction)
         self.session.add(photo)
         return photo

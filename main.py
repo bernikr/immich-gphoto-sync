@@ -32,11 +32,12 @@ async def main() -> None:
         for url in ALBUMS_FILE.read_text().splitlines():
             album_id, key, title = await gphoto.load_album_meta(url)
             print(f"checking album '{title}'")
-            album = await db.get_or_create_album(album_id, key)
-            if album.immich_id is None:
-                album.immich_id = await immich.create_album(title)
+            album = await db.get_album(album_id)
+            if album is None:
+                immich_id = await immich.create_album(title)
+                album = await db.create_album(album_id, key, immich_id)
 
-            photos = await db.get_photos(album.id)
+            photos = await db.get_photos(album)
             google_photo_ids = set(await gphoto.get_photo_ids(album.google_id, album.google_key))
             immich_photo_ids = set(await immich.get_photo_ids(album.immich_id))
 
